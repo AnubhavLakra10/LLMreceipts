@@ -101,7 +101,7 @@ export class TeamCommand {
   /**
    * Export current user's recent session data to the shared team-data directory
    */
-  private async exportMemberData(userName?: string): Promise<void> {
+  async exportMemberData(userName?: string): Promise<void> {
     const config = await this.configManager.loadConfig();
     const teamDir = config.teamDataDir;
 

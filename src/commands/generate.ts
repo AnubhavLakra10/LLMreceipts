@@ -10,7 +10,9 @@ import { ReceiptGenerator } from "../core/receipt-generator.js";
 import { HtmlRenderer } from "../core/html-renderer.js";
 import { ThermalPrinterRenderer } from "../core/thermal-printer.js";
 import { ConfigManager } from "../core/config-manager.js";
+import { PeriodAggregator } from "../core/period-aggregator.js";
 import { LocationDetector } from "../utils/location.js";
+import { TeamCommand } from "./team.js";
 import type { SessionEndHookData } from "../types/session-hook.js";
 import type { ReceiptData } from "../core/receipt-generator.js";
 
@@ -56,25 +58,45 @@ export class GenerateCommand {
       spinner.text = "Fetching session data...";
 
       let sessionData;
-      try {
-        if (actualSessionId) {
-          // From hook or when we have the full UUID — fetch directly by ID
-          // for accurate totals (avoids sub-session slice issue with --breakdown)
-          sessionData =
-            await this.dataFetcher.fetchSessionById(actualSessionId);
-        } else {
-          // Manual mode — discover session by prefix/name, then fetch accurate data
-          sessionData =
-            await this.dataFetcher.fetchSessionData(options.session);
+      if (actualSessionId && stdinData) {
+        // Hook mode with session ID — retry with backoff since ccusage
+        // may not have indexed the session yet
+        const maxAttempts = config.hookRetryAttempts ?? 3;
+        const baseDelay = config.hookRetryDelayMs ?? 2000;
+        let lastError: unknown;
+
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          try {
+            spinner.text = attempt > 1
+              ? `Fetching session data (attempt ${attempt}/${maxAttempts})...`
+              : "Fetching session data...";
+            sessionData = await this.dataFetcher.fetchSessionById(actualSessionId);
+            break;
+          } catch (err) {
+            lastError = err;
+            if (attempt < maxAttempts) {
+              const delay = baseDelay * Math.pow(1.5, attempt - 1);
+              spinner.text = `Session not yet indexed, retrying in ${(delay / 1000).toFixed(1)}s...`;
+              await new Promise((resolve) => setTimeout(resolve, delay));
+            }
+          }
         }
-      } catch (err) {
-        if (stdinData) {
-          // Session not found in ccusage — likely too short or not yet processed.
-          // Exit silently rather than generating a receipt for the wrong session.
+
+        if (!sessionData) {
+          // All retries exhausted — exit silently
           spinner.stop();
           return;
         }
-        throw err;
+      } else {
+        try {
+          if (actualSessionId) {
+            sessionData = await this.dataFetcher.fetchSessionById(actualSessionId);
+          } else {
+            sessionData = await this.dataFetcher.fetchSessionData(options.session);
+          }
+        } catch (err) {
+          throw err;
+        }
       }
 
       // Determine transcript path if not from hook
@@ -164,6 +186,29 @@ export class GenerateCommand {
       if (errors.length === outputFormats.length) {
         // All outputs failed — throw the first error
         throw errors[0].error;
+      }
+
+      // Hook-only: trigger period receipt generation and auto team export
+      if (isFromHook) {
+        try {
+          const aggregator = new PeriodAggregator();
+          await Promise.allSettled([
+            aggregator.checkAndGenerateDaily(config),
+            aggregator.checkAndGenerateWeekly(config),
+            aggregator.checkAndGenerateMonthly(config),
+          ]);
+        } catch {
+          // Period receipt generation is best-effort
+        }
+
+        if (config.teamDataDir) {
+          try {
+            const teamCmd = new TeamCommand();
+            await teamCmd.exportMemberData();
+          } catch {
+            // Auto team export is best-effort
+          }
+        }
       }
     } catch (error) {
       spinner.fail("Failed to generate receipt");

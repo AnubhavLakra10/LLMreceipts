@@ -5,6 +5,7 @@ import { GenerateCommand } from "./commands/generate.js";
 import { ConfigCommand } from "./commands/config.js";
 import { SetupCommand } from "./commands/setup.js";
 import { TeamCommand } from "./commands/team.js";
+import { ReportCommand } from "./commands/report.js";
 
 const program = new Command();
 
@@ -75,6 +76,19 @@ program
   .option("--to <date>", "Filter to date (YYYY-MM-DD)")
   .action(async (options) => {
     const command = new TeamCommand();
+    await command.execute(options);
+  });
+
+// Report command
+program
+  .command("report")
+  .description("Generate period summary receipts (daily, weekly, monthly)")
+  .option("--daily", "Generate daily receipt")
+  .option("--weekly", "Generate weekly receipt")
+  .option("--monthly", "Generate monthly receipt")
+  .option("--date <YYYY-MM-DD>", "Reference date (default: yesterday for daily, last complete period for weekly/monthly)")
+  .action(async (options) => {
+    const command = new ReportCommand();
     await command.execute(options);
   });
 

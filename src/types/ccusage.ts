@@ -34,3 +34,65 @@ export interface CcusageResponse {
     totalTokens: number;
   };
 }
+
+/**
+ * A single entry from ccusage daily/weekly/monthly output
+ */
+export interface CcusagePeriodEntry {
+  date: string;
+  totalCost: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  sessions: number;
+  modelBreakdowns?: ModelBreakdown[];
+}
+
+/**
+ * Response from ccusage daily/weekly/monthly commands
+ */
+export interface CcusagePeriodResponse {
+  entries: CcusagePeriodEntry[];
+  totals: {
+    totalCost: number;
+    totalTokens: number;
+    inputTokens: number;
+    outputTokens: number;
+    cacheCreationTokens: number;
+    cacheReadTokens: number;
+    sessions: number;
+  };
+}
+
+/**
+ * Per-project usage summary within a period
+ */
+export interface ProjectUsageSummary {
+  projectName: string;
+  projectPath: string;
+  totalCost: number;
+  totalTokens: number;
+  modelBreakdowns: ModelBreakdown[];
+}
+
+/**
+ * Aggregated data for a period receipt (daily/weekly/monthly)
+ */
+export interface PeriodReceiptData {
+  periodType: "daily" | "weekly" | "monthly";
+  periodLabel: string;
+  dateFrom: string;
+  dateTo: string;
+  totalCost: number;
+  totalTokens: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
+  totalSessions: number;
+  modelBreakdowns: ModelBreakdown[];
+  dailyBreakdown: CcusagePeriodEntry[];
+  projectBreakdown: ProjectUsageSummary[];
+}
