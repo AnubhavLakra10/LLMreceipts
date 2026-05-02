@@ -1,57 +1,59 @@
 # LLM Receipts
 
-Generate thermal printer-style receipts for your LLM coding sessions — with enterprise team tracking and custom branding.
+Generate thermal printer-style receipts for your LLM coding sessions — with enterprise team tracking, period summaries, and custom branding.
 
-Every time you end a Claude Code session, a styled receipt pops up in your browser showing exactly what you spent: token breakdown per model, cache usage, and total cost. For teams, aggregate usage across 20+ members into a single dashboard.
+Every time you end a Claude Code session, a styled receipt pops up in your browser showing exactly what you spent: token breakdown per model, cache usage, project folder, and total cost. Period receipts (daily/weekly/monthly) are generated automatically. For teams, aggregate usage across members into a single dashboard via a shared OneDrive/SharePoint folder.
 
 ## Features
 
-- **Auto-generated receipts** via Claude Code `SessionEnd` hook
+- **Auto-generated receipts** via Claude Code `SessionEnd` hook with retry logic
+- **Period receipts** — daily, weekly, and monthly summaries in thermal receipt style
+- **Project breakdown** — shows which project folders were used and their cost
 - **HTML receipts** with thermal printer aesthetic — opens in browser automatically
 - **Console output** with ASCII art
 - **Thermal printer** support (Epson TM-T88V / ESC/POS compatible)
 - **Company branding** — custom logo, company name, location
-- **Enterprise team tracking** — export, aggregate, and report across team members
-- **Configurable** location, timezone, and output preferences
+- **Enterprise team tracking** — auto-export to shared folder, aggregate reports
+- **Automatic period generation** — hook creates due daily/weekly/monthly receipts
+- **Configurable** location, timezone, retry behavior, and output preferences
 - **Latest model support** — Opus 4.6, Sonnet 4.6, Haiku 4.5
 
 ## Quick Start
 
 ```bash
-npx llm-receipts setup
+# Install globally from GitHub
+npm install -g github:AnubhavLakra10/LLMreceipts
+
+# Install the SessionEnd hook
+llm-receipts setup
+
+# Configure
+llm-receipts config --set company="Your Company"
+llm-receipts config --set location="City, Country"
+llm-receipts config --set timezone="Europe/Copenhagen"
 ```
 
-This installs a `SessionEnd` hook in `~/.claude/settings.json` and creates `~/.claude-receipts.config.json`.
-
-### Configure for your company
-
-```bash
-npx llm-receipts config --set company="Your Company"
-npx llm-receipts config --set location="City, Country"
-npx llm-receipts config --set timezone="Europe/Copenhagen"
-```
-
-### Manual generation
-
-```bash
-# Generate for most recent session
-npx llm-receipts generate
-
-# HTML output
-npx llm-receipts generate --output html
-
-# Console ASCII art
-npx llm-receipts generate --output console
-
-# Thermal printer
-npx llm-receipts generate --output printer --printer usb
-```
+That's it. Every Claude Code session now auto-generates a receipt.
 
 ## Commands
 
 ### `generate`
 
 Generate a receipt for a Claude Code session.
+
+```bash
+# Most recent session
+llm-receipts generate
+
+# HTML output
+llm-receipts generate --output html
+
+# Console ASCII art
+llm-receipts generate --output console
+
+# Thermal printer
+llm-receipts generate --output printer --printer usb
+```
 
 | Option | Description |
 |--------|-------------|
@@ -60,31 +62,75 @@ Generate a receipt for a Claude Code session.
 | `-l, --location <text>` | Override location detection |
 | `-p, --printer <name>` | Printer interface (`usb`, `tcp://host:port`) |
 
+### `report`
+
+Generate period summary receipts (daily, weekly, monthly) with project folder breakdown.
+
+```bash
+# Daily — yesterday by default
+llm-receipts report --daily
+
+# Daily — specific date
+llm-receipts report --daily --date 2026-05-01
+
+# Weekly — last complete week
+llm-receipts report --weekly
+
+# Monthly — last complete month
+llm-receipts report --monthly
+
+# Monthly — specific month
+llm-receipts report --monthly --date 2026-04-15
+
+# All three at once
+llm-receipts report --daily --weekly --monthly
+```
+
+| Option | Description |
+|--------|-------------|
+| `--daily` | Generate daily receipt |
+| `--weekly` | Generate weekly receipt |
+| `--monthly` | Generate monthly receipt |
+| `--date <YYYY-MM-DD>` | Reference date (default: yesterday/last complete period) |
+
+Receipts are saved to `~/.claude-receipts/daily/`, `weekly/`, and `monthly/`.
+
+Each period receipt includes:
+- Model-by-model cost and token breakdown
+- Project folder breakdown (which repos you worked in)
+- Daily cost chart (for weekly/monthly)
+- Thermal printer receipt styling
+
 ### `setup`
 
 ```bash
-npx llm-receipts setup          # Install SessionEnd hook
-npx llm-receipts setup --uninstall  # Remove hook
+llm-receipts setup              # Install SessionEnd hook
+llm-receipts setup --uninstall  # Remove hook
 ```
 
 ### `config`
 
 ```bash
-npx llm-receipts config --show
-npx llm-receipts config --set company="DPE - Ramboll Tech"
-npx llm-receipts config --set location="Esbjerg, Denmark"
-npx llm-receipts config --set timezone="Europe/Copenhagen"
-npx llm-receipts config --set teamDataDir="\\\\server\\share\\team-data"
-npx llm-receipts config --reset
+llm-receipts config --show
+llm-receipts config --set company="Your Company"
+llm-receipts config --set location="City, Country"
+llm-receipts config --set timezone="Europe/Copenhagen"
+llm-receipts config --set "teamDataDir=C:/Users/YOU/OneDrive - Company/llm-team-receipts"
+llm-receipts config --reset
 ```
 
-| Setting | Description |
-|---------|-------------|
-| `company` | Company name on receipts |
-| `location` | Default location string |
-| `timezone` | Timezone for dates (e.g., `Europe/Copenhagen`) |
-| `printer` | Default printer interface |
-| `teamDataDir` | Shared directory for team data aggregation |
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `company` | — | Company name on receipts |
+| `location` | — | Default location string |
+| `timezone` | — | Timezone for dates (e.g., `Europe/Copenhagen`) |
+| `printer` | — | Default printer interface |
+| `teamDataDir` | — | Shared directory for team data aggregation |
+| `autoDaily` | `true` | Auto-generate daily receipts from hook |
+| `autoWeekly` | `true` | Auto-generate weekly receipts from hook |
+| `autoMonthly` | `true` | Auto-generate monthly receipts from hook |
+| `hookRetryAttempts` | `3` | Retry attempts when session not yet indexed |
+| `hookRetryDelayMs` | `2000` | Base retry delay in ms (1.5x backoff) |
 
 ### `team`
 
@@ -92,68 +138,121 @@ Enterprise team usage tracking and reporting.
 
 ```bash
 # Export your receipts to shared team directory
-npx llm-receipts team --export
-npx llm-receipts team --export --user-name "firstname.lastname"
+llm-receipts team --export
 
 # Generate team report (console)
-npx llm-receipts team --report
+llm-receipts team --report
 
 # Generate team report (HTML dashboard)
-npx llm-receipts team --html
+llm-receipts team --html
 
 # Filter by date range
-npx llm-receipts team --html --from 2026-04-01 --to 2026-04-30
+llm-receipts team --html --from 2026-04-01 --to 2026-04-30
 ```
-
-The HTML dashboard includes:
-- Total cost, sessions, and tokens KPIs
-- Per-member breakdown with average cost per session
-- Per-model usage (Opus vs Sonnet vs Haiku)
-- Daily cost chart (last 30 days)
 
 ## Enterprise Team Setup
 
-For teams of any size:
+### For the admin (you)
 
-1. **Each member** installs the hook and configures the shared directory:
-   ```bash
-   npx llm-receipts setup
-   npx llm-receipts config --set company="Your Company"
-   npx llm-receipts config --set teamDataDir="\\\\server\\share\\team-data"
-   ```
+1. Create a shared OneDrive/SharePoint folder (e.g., `llm-team-receipts`)
+2. Share it with all team members
+3. Configure your own install:
 
-2. **Each member** periodically exports their session data:
-   ```bash
-   npx llm-receipts team --export --user-name "firstname.lastname"
-   ```
+```bash
+npm install -g github:AnubhavLakra10/LLMreceipts
+llm-receipts setup
+llm-receipts config --set company="Your Company"
+llm-receipts config --set location="Your City"
+llm-receipts config --set "teamDataDir=C:/Users/YOU/OneDrive - Company/llm-team-receipts"
+```
 
-3. **Admin** generates the team report:
-   ```bash
-   npx llm-receipts team --html
-   ```
+### For each teammate (copy-paste, change 2 lines)
 
-The `teamDataDir` should be a shared network drive, OneDrive, SharePoint, or NAS accessible to all team members.
+```powershell
+# Install (one time, no clone needed)
+npm install -g github:AnubhavLakra10/LLMreceipts
+
+# Setup auto-hook
+llm-receipts setup
+
+# Configure — CHANGE location and YOUR_USERNAME below:
+llm-receipts config --set company="Your Company"
+llm-receipts config --set location="Copenhagen"
+llm-receipts config --set "teamDataDir=C:/Users/YOUR_USERNAME/OneDrive - Company/llm-team-receipts"
+
+# Backfill all past months and export
+llm-receipts report --monthly --date 2026-03-15
+llm-receipts report --monthly --date 2026-04-15
+llm-receipts team --export
+```
+
+Change only:
+- `location` — their city
+- `YOUR_USERNAME` — their Windows username
+
+### What happens automatically after setup
+
+Every time a teammate ends a Claude Code session:
+1. Session receipt is created (with retry if ccusage hasn't indexed yet)
+2. Due daily/weekly/monthly receipts are generated
+3. Their receipt data is exported to the shared OneDrive folder
+
+### Viewing team data
+
+```bash
+# Generate the team dashboard anytime
+llm-receipts team --html
+```
+
+The shared folder structure:
+
+```
+OneDrive - Company/llm-team-receipts/
+├── alice/
+│   ├── auth-refactor.json
+│   └── api-migration.json
+├── bob/
+│   ├── data-pipeline.json
+│   └── dashboard-v2.json
+├── charlie/
+│   └── infra-setup.json
+└── team-report.html
+```
+
+Each JSON contains: username, project folder, location, session date, cost, tokens, and model breakdowns.
+
+## Receipt Storage
+
+```
+~/.claude-receipts/
+├── projects/           # Per-session receipts
+│   ├── fix-auth-bug.html
+│   └── api-refactor.html
+├── daily/              # Auto-generated daily summaries
+│   ├── 2026-05-01.html
+│   └── 2026-05-02.html
+├── weekly/             # Auto-generated weekly summaries
+│   └── 2026-W18.html
+└── monthly/            # Auto-generated monthly summaries
+    └── 2026-04.html
+```
 
 ## How It Works
 
 1. **SessionEnd Hook** — When you exit Claude Code, the hook fires automatically
-2. **Data Collection** — Calls `ccusage session --id` for accurate token/cost data
-3. **Transcript Parsing** — Reads session JSONL for metadata (name, timestamps, messages)
-4. **Receipt Generation** — Creates a styled HTML receipt with token breakdowns
-5. **Auto-open** — Opens the receipt in your default browser
-
-### Location Detection
-
-Priority order:
-1. `--location` flag
-2. Config file `location` setting
-3. IP geolocation (offline, via geoip-lite)
-4. Fallback: "The Cloud"
+2. **Retry with Backoff** — 3 attempts (2s, 3s, 4.5s) if ccusage hasn't indexed the session yet
+3. **Data Collection** — Calls `ccusage session --id` for accurate token/cost data
+4. **Transcript Parsing** — Reads session JSONL for metadata (name, timestamps, messages)
+5. **Receipt Generation** — Creates a styled HTML receipt with token and project breakdowns
+6. **Period Check** — Generates any due daily/weekly/monthly receipts
+7. **Team Export** — Auto-exports to shared folder if `teamDataDir` is configured
+8. **Auto-open** — Opens the receipt in your default browser
 
 ## Requirements
 
 - Node.js >= 22.0.0
 - Claude Code (for automatic generation)
+- `ccusage` (installed automatically as a dependency)
 
 ## Thermal Printing
 
@@ -184,7 +283,17 @@ Look for a `SessionEnd` hook pointing to `llm-receipts`.
 
 ### Session shows wrong cost
 
-Very short sessions may not appear in ccusage yet. The hook exits silently rather than showing incorrect data.
+The hook retries 3 times with backoff. Very short sessions (< 100 tokens) may still not appear in ccusage.
+
+### Period receipts not generating
+
+Check your config:
+
+```bash
+llm-receipts config --show
+```
+
+Ensure `autoDaily`, `autoWeekly`, `autoMonthly` are not set to `false`.
 
 ## License
 
