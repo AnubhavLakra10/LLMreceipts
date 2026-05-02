@@ -1,0 +1,13 @@
+name = "llm-receipts"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# R2 bucket for storing receipt HTML files
+[[r2_buckets]]
+binding = "RECEIPTS"
+bucket_name = "llm-receipts"
+
+# KV namespace for rate limiting
+[[kv_namespaces]]
+binding = "RATE_LIMITS"
+id = "ba9882fae21446a18171cb1cc045c7e4"
