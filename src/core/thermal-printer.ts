@@ -332,7 +332,15 @@ export class ThermalPrinterRenderer {
    * @param spec "usb" for auto-detect, or "usb:VID:PID" for specific device
    */
   private async sendViaUsb(buffer: Buffer, spec: string): Promise<void> {
-    const { findByIds, getDeviceList, OutEndpoint } = await import("usb");
+    let usbModule;
+    try {
+      usbModule = await import("usb");
+    } catch {
+      throw new Error(
+        'USB printing requires the "usb" package. Install it with: npm install -g usb',
+      );
+    }
+    const { findByIds, getDeviceList, OutEndpoint } = usbModule;
 
     let vid = EPSON_VENDOR_ID;
     let pid = TM_T88V_PRODUCT_ID;
