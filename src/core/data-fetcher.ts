@@ -8,6 +8,17 @@ import type {
   ModelBreakdown,
 } from "../types/ccusage.js";
 
+/**
+ * Run ccusage CLI — tries direct binary first, falls back to npx.
+ */
+async function runCcusage(args: string[], timeout = 60000) {
+  try {
+    return await execa("ccusage", args, { timeout });
+  } catch {
+    return await execa("npx", ["ccusage", ...args], { timeout });
+  }
+}
+
 interface CcusageEntry {
   timestamp: string;
   inputTokens: number;
@@ -32,10 +43,9 @@ export class DataFetcher {
    * (unlike --breakdown which splits into sub-session slices).
    */
   async fetchSessionById(sessionId: string): Promise<CcusageSession> {
-    const { stdout } = await execa(
-      "npx",
-      ["ccusage", "session", "--id", sessionId, "--json"],
-      { timeout: 30000 },
+    const { stdout } = await runCcusage(
+      ["session", "--id", sessionId, "--json"],
+      30000,
     );
 
     const data: CcusageByIdResponse = JSON.parse(stdout);
@@ -133,9 +143,7 @@ export class DataFetcher {
     try {
       const args = ["session", "--json", "--breakdown"];
 
-      const { stdout } = await execa("npx", ["ccusage", ...args], {
-        timeout: 30000,
-      });
+      const { stdout } = await runCcusage(args, 30000);
 
       const response: CcusageResponse = JSON.parse(stdout);
 
@@ -252,10 +260,8 @@ export class DataFetcher {
     since: string,
     until: string,
   ): Promise<CcusagePeriodResponse> {
-    const { stdout } = await execa(
-      "npx",
-      ["ccusage", period, "--since", since, "--until", until, "--json", "--breakdown"],
-      { timeout: 60000 },
+    const { stdout } = await runCcusage(
+      [period, "--since", since, "--until", until, "--json", "--breakdown"],
     );
 
     const data = JSON.parse(stdout);
@@ -310,10 +316,8 @@ export class DataFetcher {
     since: string,
     until: string,
   ): Promise<ProjectUsageSummary[]> {
-    const { stdout } = await execa(
-      "npx",
-      ["ccusage", period, "--since", since, "--until", until, "--json", "--breakdown", "--instances"],
-      { timeout: 60000 },
+    const { stdout } = await runCcusage(
+      [period, "--since", since, "--until", until, "--json", "--breakdown", "--instances"],
     );
 
     const data = JSON.parse(stdout);
