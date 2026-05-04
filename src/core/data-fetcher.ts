@@ -266,9 +266,15 @@ export class DataFetcher {
 
     const data = JSON.parse(stdout);
 
+    // Handle null/undefined/empty responses
+    if (!data || typeof data !== "object") {
+      return { entries: [], totals: { totalCost: 0, totalTokens: 0, inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, sessions: 0 } };
+    }
+
     // ccusage returns { daily: [...], totals: {...} } (or weekly/monthly key)
     // Normalize to our { entries, totals } interface
-    const entries: CcusagePeriodEntry[] = data[period] || data.entries || [];
+    const raw = data[period] || data.entries;
+    const entries: CcusagePeriodEntry[] = Array.isArray(raw) ? raw : [];
 
     if (data.totals) {
       return {
@@ -322,6 +328,8 @@ export class DataFetcher {
 
     const data = JSON.parse(stdout);
     const projects: ProjectUsageSummary[] = [];
+
+    if (!data || typeof data !== "object") return projects;
 
     // ccusage returns { projects: { "project-path": [...entries] }, totals }
     const projectsMap: Record<string, unknown[]> = data.projects || {};
