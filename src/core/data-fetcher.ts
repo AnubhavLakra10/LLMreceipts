@@ -9,14 +9,11 @@ import type {
 } from "../types/ccusage.js";
 
 /**
- * Run ccusage CLI — tries direct binary first, falls back to npx.
+ * Run ccusage CLI — finds it from node_modules/.bin automatically,
+ * no npx or global install needed.
  */
 async function runCcusage(args: string[], timeout = 60000) {
-  try {
-    return await execa("ccusage", args, { timeout });
-  } catch {
-    return await execa("npx", ["ccusage", ...args], { timeout });
-  }
+  return await execa("ccusage", args, { timeout, preferLocal: true });
 }
 
 interface CcusageEntry {
